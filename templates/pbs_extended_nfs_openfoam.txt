@@ -1,0 +1,468 @@
+# Copyright (c) 2020 Hiroshi Tanaka, hirtanak@gmail.com @hirtanak
+# Licensed under the MIT License.
+################################
+## Cluster Configuration File ##
+################################
+
+[cluster OpenFOAM/OpenFOAM+]
+FormLayout = selectionpanel
+Category = Applications
+IconUrl = https://raw.githubusercontent.com/hirtanak/scripts/master/OpenFOAMlogos.png
+
+Autoscale = $Autoscale
+
+    [[node defaults]]
+    UsePublicNetwork = $UsePublicNetwork
+    Credentials = $Credentials    
+    SubnetId = $SubnetId
+    Region = $Region
+    KeyPairLocation = ~/.ssh/cyclecloud.pem
+#    KeyPairLocation = ~/examples/id_rsaccuser 
+   
+        [[[cluster-init OpenFOAM:default:1.0.2]]]
+        Optional = True
+
+        [[[configuration]]]
+        MOUNTPOINT1 = $configuration_MountPoint1
+        MOUNTPOINT1_KEY = $configuration_MountPoint1_Key
+	OF_INSTALLATION = $configuration_OF_INSTALLATION
+        OF_VERSION = $configuration_OF_VERSION
+
+    [[node master]]
+    MachineType = $MasterMachineType
+    IsReturnProxy = $ReturnProxy
+    AdditionalClusterInitSpecs = $MasterClusterInitSpecs
+    ImageName = $ImageName
+
+        [[[configuration]]]
+
+        [[[cluster-init OpenFOAM:master:1.0.2]]]
+        Optional = True
+
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = $UsePublicNetwork
+	StaticPublicIpAddress = true
+
+        [[[input-endpoint ganglia]]]
+        PrivatePort = 8652
+        PublicPort = 8652
+
+        # Add 2 premium disks in a RAID 0 configuration to the NFS export
+        [[[volume nfs-1]]]
+        Size = 512
+        SSD = True
+        Mount = nfs
+        Persistent = true
+
+        [[[volume nfs-2]]]
+        Size = 512
+        SSD = True
+        Mount = nfs
+        Persistent = true
+
+	[[[configuration cyclecloud.mounts.nfs]]]
+	mountpoint = /mnt/exports/apps
+	fs_type = ext4
+	raid_level = 0
+
+        [[[configuration cyclecloud.exports.nfs_data]]]
+        type = nfs
+        export_path = /mnt/exports/apps
+
+    [[nodearray execute]]
+    MachineType = $ExecuteMachineType
+    MaxCoreCount = $MaxExecuteCoreCount
+    Interruptible = $UseLowPrio
+    AdditionalClusterInitSpecs = $ExecuteClusterInitSpecs
+    InstallJetpack = true
+    JetpackPlatform = centos-7
+    ImageName = $ImageNameExecute
+    Azure.SingleScaleset = true
+
+        [[[configuration]]]
+
+        [[[cluster-init OpenFOAM:execute:1.0.2]]]
+        Optional = True
+
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = $ExecuteNodesPublic
+
+        [[[configuration cyclecloud.mounts.nfs_data]]]
+        type = nfs
+        mountpoint = /mnt/exports/apps
+        export_path = /mnt/exports/apps
+
+    [[node viznode]]
+    MachineType = $VizMachineType
+    AdditionalClusterInitSpecs = $VizClusterInitSpecs
+    ImageName = $ImageNameViz
+    InstallJetpack = true
+    JetpackPlatform = ${configuration_viz_jetpack_platform[ImageNameViz]}
+    AwaitInstallation = true
+
+        [[[configuration]]]
+
+        [[[cluster-init OpenFOAM:viz:1.0.2]]]
+        Optional = True
+
+        [[[network-interface eth0]]]
+        AssociatePublicIpAddress = $VizNodesPublic
+        StaticPublicIpAddress = true
+
+        [[[configuration cyclecloud.mounts.nfs_data]]]
+        type = nfs
+        mountpoint = /mnt/exports/apps
+        export_path = /mnt/exports/apps
+
+
+[parameters Required Settings]
+Order = 1
+
+    [[parameters About OpenFOAM]]
+    Order = 10
+
+        [[[parameter OpenFOAM]]]
+        Order = 15
+        HideLabel = true
+        Config.Plugin = pico.widget.HtmlTemplateWidget
+        Config.Template = '''<p>Azure CyecleCloud template for Siemens OpenFOAM with OSS PBS Pro</p>'''
+
+    [[parameters Virtual Machines ]]
+    Description = "The cluster, in this case, has two roles: the scheduler master-node with shared filer and the execute hosts. Configure which VM types to use based on the requirements of your application."
+    Order = 11
+
+        [[[parameter Region]]]
+        Label = Region
+        Description = Deployment Location
+        ParameterType = Cloud.Region
+        DefaultValue = japaneast
+
+        [[[parameter MasterMachineType]]]
+        Label = Master VM Type
+        Description = The VM type for scheduler master and shared filer.
+        ParameterType = Cloud.MachineType
+        DefaultValue = Standard_DS3_v2
+
+        [[[parameter ExecuteMachineType]]]
+        Label = Execute VM Type
+        Description = The VM type for execute nodes
+        ParameterType = Cloud.MachineType
+        DefaultValue = Standard_HC44rs
+        Config.Multiselect = true
+        Config.Filter := Package in {"Standard_H16r", "Standard_H16r_Promo", "Standard_HB60rs", "Standard_HB120rs_v2", "Standard_HC44rs"}
+        config.plugin = pico.control.AutoCompleteDropdown
+            [[[[list Config.Entries]]]]
+            Name = Standard_H16r
+            Label = Standard_H16r
+            [[[[list Config.Entries]]]]
+            Name = Standard_H16r_Promo
+            Label = Standard_H16r_Promo
+            [[[[list Config.Entries]]]]
+            Name = Standard_HB60rs
+            Label = Standard_HB60rs
+            [[[[list Config.Entries]]]]
+            Name = Standard_HB120rs_v2
+            Label = Standard_HB120rs_v2
+            [[[[list Config.Entries]]]]
+            Name = Standard_HC44rs
+            Label = Standard_HC44rs
+
+    [[parameters Auto-Scaling]]
+    Description = "The cluster can autoscale to the workload, adding execute hosts as jobs are queued. To enable this check the box below and choose the initial and maximum core counts for the cluster"
+    Order = 12
+
+        [[[parameter Autoscale]]]
+        Label = Autoscale
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Start and stop execute instances automatically
+
+        [[[parameter MaxExecuteCoreCount]]]
+        Label = Max Cores
+        Description = The total number of execute cores to start
+        DefaultValue = 88
+        Config.Plugin = pico.form.NumberTextBox
+        Config.MinValue = 0
+        Config.IntegerOnly = true
+
+        [[[parameter UseLowPrio]]]
+        Label = Low Priority
+        DefaultValue = true
+        Widget.Plugin = pico.form.BooleanCheckBox
+        Widget.Label = Use low priority instances for execute hosts
+
+    [[parameters Networking]]
+    Order = 13
+
+        [[[parameter SubnetId]]]
+        Label = Subnet ID
+        Description = Subnet Resource Path (ResourceGroup/VirtualNetwork/Subnet)
+        ParameterType = Azure.Subnet
+        Required = True
+
+
+[parameters Advanced Settings]
+Order = 20
+
+    [[parameters Azure Settings]]
+    Order = 21
+
+        [[[parameter Credentials]]]
+        Description = The credentials for the cloud provider
+        ParameterType = Cloud.Credentials
+
+    [[parameters Software]]
+    Description = "Specify the scheduling software, and base OS installed on all nodes, and optionally the cluster-init and chef versions from your Locker."
+    Order = 22
+
+        [[[parameter ImageName]]]
+        Label = Master Node OS
+        ParameterType = Cloud.Image
+        Config.OS = linux
+	DefaultValue = OpenLogic:CentOS-HPC:7.6:latest
+
+        [[[parameter MasterClusterInitSpecs]]]
+        Label = Master Cluster-Init
+        DefaultValue = =undefined
+        Description = Cluster init specs to apply to the master node
+        ParameterType = Cloud.ClusterInitSpecs
+
+        [[[parameter ImageNameExecute]]]
+        Label = Exec Node OS
+        ParameterType = Cloud.Image
+        Config.OS = linux
+        DefaultValue = OpenLogic:CentOS-HPC:7.6:latest
+
+        [[[parameter ExecuteClusterInitSpecs]]]
+        Label = Execute Cluster-Init
+        DefaultValue = =undefined
+        Description = Cluster init specs to apply to execute nodes
+        ParameterType = Cloud.ClusterInitSpecs
+	
+    [[parameters Advanced Networking]]
+    Description = Advanced networking settings
+    Order = 23
+
+        [[[parameter ReturnProxy]]]
+        Label = Return Proxy
+        DefaultValue = True
+        ParameterType = Boolean
+        Config.Label = Use SSH tunnel to connect to CycleCloud (required if direct access is blocked)
+
+        [[[parameter UsePublicNetwork]]]
+        Label = Public Head Node
+        DefaultValue = True
+        ParameterType = Boolean
+        Config.Label = Access master node from the Internet
+
+        [[[parameter ExecuteNodesPublic]]]
+        Label = Public Execute
+        DefaultValue = False
+        ParameterType = Boolean
+        Config.Label = Access execute nodes from the Internet
+        Conditions.Excluded := UsePublicNetwork isnt true
+
+    [[parameters Mount Point Settings]]
+    Description = Mount Point Settings. <Server>:/<MountPoint1>. ex. 10.0.4.250:/vol01
+    Order = 24
+
+        [[[parameter configuration_MountPoint1]]]
+        Label = MountPoint1
+        Config.Label = MountPoint1
+
+        [[[parameter configuration_MountPoint1_Key]]]
+        Label = MountPoint1 Key
+        DefaultValue = key1
+        Config.Label = MountPoint1 Key
+
+
+[parameters OpenFOAM Settings]
+Order = 60
+
+    [[parameters OpenFOAM Installation Settings ]]
+    Description = "Section for configuring OpenFOAM"
+    Order = 61
+
+    [[parameters OpenFOAM Software Settings ]]
+    Description = Section for OpenFOAM
+    Order = 62
+
+       [[[parameter configuration_OF_INSTALLATION]]]
+        required = False
+        label = OpenFOAM Installation Options
+        Description = OpenFOAM Installation Options
+        DefaultValue = Compile1
+        config.plugin = pico.control.AutoCompleteDropdown
+            [[[[list Config.Entries]]]]
+            Name = None
+            Label = None
+            [[[[list Config.Entries]]]]
+            Name = Compile0
+            Label = Master Node Compile
+            [[[[list Config.Entries]]]]
+            Name = Compile1
+            Label = Compile HC44 Exec Node
+            [[[[list Config.Entries]]]]
+            Name = Compile2
+            Label = Compile HB60 Exec Node
+            [[[[list Config.Entries]]]]
+            Name = Compile3
+            Label = Compile HB120 Exec Node
+            [[[[list Config.Entries]]]]
+            Name = Compile4
+            Label = Compile H16r Exec Node
+
+       [[[parameter configuration_OF_VERSION]]]
+        required = False
+        label = OpenFOAM ver.
+        Description = Version of OpenFOAM
+        DefaultValue = v1906
+        config.plugin = pico.control.AutoCompleteDropdown
+            [[[[list Config.Entries]]]]
+            Name = None
+            Label = None
+            [[[[list Config.Entries]]]]
+            Name = v1906
+            Label = OpenFOAM v1906
+            [[[[list Config.Entries]]]]
+            Name = v1812
+            Label = OpenFOAM v1812
+            [[[[list Config.Entries]]]]
+            Name = v1806
+            Label = OpenFOAM v1806
+            [[[[list Config.Entries]]]]
+            Name = v1712
+            Label = OpenFOAM v1712
+            [[[[list Config.Entries]]]]
+            Name = v1706
+            Label = OpenFOAM v1706
+
+
+[parameters VizNode Setting]
+Order = 100
+
+    [[parameters Vizualization Nodes Settings]]
+    Order = 101
+        
+        [[[parameter VizMachineType]]]
+        Required = False
+        Label = Viz VM Type
+        Description = The VM type for scheduler master and shared filer.
+        ParameterType = Cloud.MachineType
+        DefaultValue = Standard_NV6_promo
+
+        [[[parameter Image Reference]]]
+        Label = OS Image Reference
+        config.plugin = pico.control.AutoCompleteDropdown
+            [[[[list Config.Entries]]]]
+            Name = cycle.image.centos7
+            Label = CentOS 7 - cycle.image.centos7
+            [[[[list Config.Entries]]]]
+            Name = cycle.image.ubuntu16
+            Label = Ubuntu 16 - cycle.image.ubuntu16
+            [[[[list Config.Entries]]]]
+            Name = cycle.image.win2016
+            Label = Windows 2016 - cycle.image.win2016
+            [[[[list Config.Entries]]]]
+            Name = MicrosoftWindowsDesktop:Windows-10:19h2-ent:latest
+            Label = Windows 10 Entterprize 1909 Gen1 - MicrosoftWindowsDesktop:Windows-10:19h2-ent:latest
+            [[[[list Config.Entries]]]]
+            Name = MicrosoftWindowsDesktop:Windows-10:19h2-pro-g2:latest
+            Label = Windows 10 Pro 1909 Gen2 - MicrosoftWindowsDesktop:Windows-10:19h2-pro-g2:latest
+            [[[[list Config.Entries]]]]
+            Name = MicrosoftWindowsDesktop:Windows-10:19h1-ent:latest
+            Label = Windows 10 Enterprize 1903 Gen1 - MicrosoftWindowsDesktop:Windows-10:19h1-ent:latest
+            [[[[list Config.Entries]]]]
+            Name = nvidia:nvidia-quadro-vws-win2016:win2016-19-04-grid8:19.04:latest
+            Label = NVIDIA Quadro WS2016
+            [[[[list Config.Entries]]]]
+            Name = nvidia:nvidia-quadro-vws-win2019:nvidia-quadro-vws-win2019-19-04:19.04:latest
+            Label = NVIDIA Quadro WS2019 - nvidia:nvidia-quadro-vws-win2019:nvidia-quadro-vws-win2019-19-04:19.04:latest
+            [[[[list Config.Entries]]]]
+            Name = cycle.image.win2016
+            Label = Basic Windows 2016
+            [[[[list Config.Entries]]]]
+            Name = cycle.image.centos7
+            Label = centos7
+            [[[[list Config.Entries]]]]
+            Name = microsoft-ads:windows-data-science-vm:windows2016:latest
+            Label = DSVM Windows 2016 - microsoft-ads:windows-data-science-vm:windows2016:latest
+            [[[[list Config.Entries]]]]
+            Name = microsoft-ads:linux-data-science-vm:linuxdsvm:latest
+            Label = DSVM CentOS - microsoft-ads:linux-data-science-vm:linuxdsvm:latest
+            [[[[list Config.Entries]]]]
+            Name = microsoft-ads:linux-data-science-vm-ubuntu:linuxdsvmubuntu:latest
+            Label = DSVM Ubuntu - microsoft-ads:linux-data-science-vm-ubuntu:linuxdsvmubuntu:latest
+
+        [[[parameter configuration_viz_jetpack_platform]]]
+        required = True
+        label = Jetpack Platform
+        parametertype = hidden
+            [[[[record DefaultValue]]]]
+            centos7 = centos-7
+            Windows-10-Ent-1909 = windows
+            Windows-10-Ent-1903 = windows
+            Windows-10 Pro 1909 = windows
+            MicrosoftWindowsDesktop:Windows-10:19h2-ent:latest = windows
+            NVIDIA Quadro WS2016 = windows
+            NVIDIA Quadro WS2019 = windows
+            Basic Windows 2016 = windows
+            DSVM Windows 2016 = windows
+            DSVM CentOS = centos-7
+            DSVM Ubuntu = ubuntu-16.04
+
+        [[[parameter ImaageWarning]]]
+        HideLabel = true
+        Config.Plugin = pico.widget.HtmlTemplateWidget
+        Config.Template := """<p style=\"padding: 20px\"><span class=\"alert-warn warning\"><strong>Imanage Choice:<br>If you want various images for Viz Node. Please copy 'Azure urn' from Image Reference to Viz Node OS. like this. ex. MicrosoftWindowsDesktop:Windows-10:19h1-ent:latest </strong></span></p>"""
+
+        [[[parameter ImageNameViz]]]
+        Label = Viz Node OS
+        ParameterType = Cloud.Image
+        Config.OS = linux
+        DefaultValue = MicrosoftWindowsDesktop:Windows-10:19h2-pro:latest
+
+        [[[parameter VizClusterInitSpecs]]]
+        Label = VizNode Cluster-Init
+        DefaultValue = =undefined
+        Description = Cluster init specs to apply to Viz node
+        ParameterType = Cloud.ClusterInitSpecs
+
+        [[[parameter configuration_jetpack_platform]]]
+        required = True
+        label = Jetpack Platform
+        parametertype = hidden
+            [[[[record DefaultValue]]]]
+            centos-7 = centos-7
+            ubuntu-16 = ubuntu-16.04
+            windows = windows
+
+        [[[parameter Username]]]
+        Label = Username
+        Description = The username for the built-in local user / AD-admin on all nodes for direct access.
+        DefaultValue = cyclecloud
+        Required = True
+
+#        [[[parameter WindowsPassword]]]
+#         Label = Password
+#         ParameterType = Password
+#         DefaultValue = Microsoft123!
+#         Description = The password for the built-in local user on windows nodes for direct access.
+#         Conditions.Required := startswith("win", configuration_ImageNameViz)
+#         Conditions.Excluded := !startswith("win", configuration_ImageNameViz)
+
+        [[[parameter WindowsWarning]]]
+        HideLabel = true
+        Config.Plugin = pico.widget.HtmlTemplateWidget
+        Config.Template := """<p style=\"padding: 20px\"><span class=\"alert-warn warning\"><strong>WARNING:<br>The Windows VM does not support ReturnProxy mode.<br>Please ensure that CycleCloud is in the same Virtual Network as the VM or add a dedicated linux proxy node.</strong></span></p>"""
+        Conditions.Excluded := !startswith("win", configuration_ImageNameViz)
+
+    [[parameters Vizualization Nodes Networking]]
+    Order = 102
+
+        [[[parameter VizNodesPublic]]]
+        Label = Public Viz Node
+        DefaultValue = true
+        ParameterType = Boolean
+        Config.Label = Access Vitualization nodes from the Internet
+        Conditions.Excluded := UsePublicNetwork isnt true
