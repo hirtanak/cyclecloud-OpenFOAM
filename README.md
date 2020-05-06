@@ -2,22 +2,25 @@
 
 ## Prerequisites
 
-2. Install CycleCloud CLI
+1. Install CycleCloud CLI
+
+## Applications
+
+1. Fundation OpenFOAM
+1. ESI OpenFOAM+
+   1. OpenFOAM+ v1906
+   1. OpenFOAM+ v1812
+   1. OpenFOAM+ v1806
+   1. OpenFOAM+ v1712
+   1. OpenFOAM+ v1712
 
 ## How to install 
 
-1. tar zxvf cyclecloud-OpenFOAM<version>.tar.gz
-2. cd cyclecloud-OpenFOAM<version>
-2. put OpenFOAM library/model on <template>/blob directory.
-6. run "cyclecloud project upload azure-storage" for uploading template to CycleCloud
-7. "cyclecloud import_template -f templates/pbs_extended_nfs_starccm.txt" for register this template to your CycleCloud
-
-## How to run OpenFOAM
-
-1. Create Execute Node manually
-2. Check Node IP Address
-3. Create hosts file for your nodes
-4. qsub ~/apps/submit_motorbike_job.sh  (sample as below)
+1. tar zxvf cyclecloud-OpenFOAM.tar.gz
+1. cd cyclecloud-OpenFOAM
+1. put OpenFOAM library/model on /blob directory.
+1. run "cyclecloud project upload azure-storage" for uploading template to CycleCloud
+1. "cyclecloud import_template -f templates/pbs_extended_nfs_starccm.txt" for register this template to your CycleCloud
 
 <pre><code>
 #!/usr/bin/bash 
