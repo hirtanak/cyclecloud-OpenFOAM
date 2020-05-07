@@ -1,5 +1,13 @@
 # Azure CycleCloud template for OpenFOAM
 
+Automatic build and install scripts with Azure Cyecloud for OpenFOAM. We have a couple of usefull environemnt as below.
+ - 1TB NSF in master server. execute node can be automtic mount as ~/apps
+ - Support Azure IB Nodes, H16r, HC44rs, HB60rs, HB120_v2
+ - OSS PBS install. job scheduler environmnet
+ - Static IP Address for master node
+ - Support visual windows node for pre/post use (application installation is working on progress)
+ - Automatic Compile by Execute Node for each OpenFOAM version.
+
 ## Prerequisites
 
 1. Install CycleCloud CLI
@@ -30,13 +38,12 @@
 source ~/apps/installOpenFOAM/install.sh -s '.*OpenFOAM-v1906.*Gcc4_8_5.*'
 
 if [[ ! -d ~/apps/motorBike ]]; then
-   ~/apps/OpenFOAM/OpenFOAM-v1906/tutorials/incompressible/simpleFoam/motorBike ~/apps/
+   cp -r ~/apps/OpenFOAM/OpenFOAM-v1906/tutorials/incompressible/simpleFoam/motorBike ~/apps/
 fi
 
 ~/apps/motorBike/Allclean
 
 ~/apps/motorBike/Allrun
-
 </pre></code>
 
 ## Known Issues
@@ -50,16 +57,18 @@ fi
 
 Azure CyceCloudのインストールに関しては、[こちら](https://docs.microsoft.com/en-us/azure/cyclecloud/quickstart-install-cyclecloud) のドキュメントを参照してください。
 
-OpenFOAM用のテンプレートになっています。
+OpenFOAM用のテンプレートになっています。OpenFOAMのダウンロード、コンパイルが自動的に行われます。
 以下の構成、特徴を持っています。
 
 1. OSS PBS ProジョブスケジューラをMasterノードにインストール
-2. H16r, H16r_Promo, HC44rs, HB60rs, HB120rs_v2を想定したテンプレート、イメージ
+1. H16r, H16r_Promo, HC44rs, HB60rs, HB120rs_v2を想定したテンプレート、イメージ
 	 - OpenLogic CentOS 7.6 HPC を利用 
-3. Masterノードに512GB * 2 のNFSストレージサーバを搭載
+1. Masterノードに512GB * 2 のNFSストレージサーバを搭載
 	 - Executeノード（計算ノード）からNFSをマウント
-4. MasterノードのIPアドレスを固定設定
+1. MasterノードのIPアドレスを固定設定
 	 - 一旦停止後、再度起動した場合にアクセスする先のIPアドレスが変更されない
+1. クラスタ作成時に選択したOpenFOAMのバージョンがダウンロードされ、OpenMPI環境でインストールされます。
+1. サンプルからモーターバイクがコピーされテスト実行可能になります。
 
 ![OSS PBS Default テンプレート構成](https://raw.githubusercontent.com/hirtanak/osspbsdefault/master/OSSPBSDefaultDiagram.png "OSS PBS Default テンプレート構成")
 
