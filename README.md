@@ -14,13 +14,17 @@ Automatic build and install scripts with Azure Cyecloud for OpenFOAM. We have a 
 
 ## Applications
 
+CAE Cluster - master node and execute node
 1. Fundation OpenFOAM
+   1. OpenFOAM-7 (Checking)
 1. ESI OpenFOAM+
    1. OpenFOAM+ v1906
-   1. OpenFOAM+ v1812
-   1. OpenFOAM+ v1806
-   1. OpenFOAM+ v1712
-   1. OpenFOAM+ v1712
+   1. OpenFOAM+ v1812 (Checking)
+   1. OpenFOAM+ v1806 (Checking)
+   1. OpenFOAM+ v1712 (Checking)
+   1. OpenFOAM+ v1706 (Checking)
+ 
+Prepost Node - NVIDIA driver installation and paraview 5.7.0 installation
 
 ## How to install 
 
